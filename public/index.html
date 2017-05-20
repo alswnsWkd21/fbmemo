@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+  <html>
+    <head>
+      <!--Import Google Icon Font-->
+      <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <!--Import materialize.css-->
+      <!-- Compiled and minified CSS -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css">
+
+
+      <!--Let browser know website is optimized for mobile-->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <style>
+          ::-webkit-scrollbar {
+              display:none;
+          }
+          .collection { cursor: pointer;}
+        </style>
+    </head>
+
+    <body>
+      <div class="row">
+        <div class="col s3" style="padding:0; margin:0; overflow-y:auto; overflow-x:hidden; height:1080px; -ms-overflow-style: none;">
+          <!-- Grey navigation panel -->
+          <ul class="collection"  style="padding:0; margin:0;"></ul>
+        </div>
+
+    <div class="col s9" style="padding:0; margin:0; max-height:1080px;">
+      <!-- Teal page content  -->
+      <nav>
+        <div class="nav-wrapper">
+          <div class="col s12">
+            <a href="#!" class="breadcrumb"><span id="modifyDate"></span></a>
+
+          </div>
+        </div>
+      </nav>
+
+      <textarea style="height:1000px;" class="textarea" width="100%" rows="1000" placeholder="새로운 메모를 입력해보세요^^"></textarea>
+    </div>
+
+    <div class="fixed-action-btn" style="bottom: 45px; right: 24px;">
+        <a class="btn-floating btn-large waves-effect waves-light red"><i class="material-icons">add</i></a>
+    </div>
+
+    <div class="preloader-wrapper big active" style="position:absolute; z-index:1000; left:50%; top:50%; display:none;">
+        <div class="spinner-layer spinner-blue-only">
+          <div class="circle-clipper left">
+            <div class="circle"></div>
+          </div><div class="gap-patch">
+            <div class="circle"></div>
+          </div><div class="circle-clipper right">
+            <div class="circle"></div>
+          </div>
+        </div>
+      </div>
+  </div>
+
+      <!--Import jQuery before materialize.js-->
+      <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/js/materialize.min.js"></script>
+
+
+      <script src="https://www.gstatic.com/firebasejs/3.9.0/firebase.js"></script>
+        <script>
+        var auth,database, userInfo, memoRef;
+          // Initialize Firebase
+          var config = {
+            apiKey: "AIzaSyBVfTbxe8eHQscFQOvKEUcxIYhln5WvMQw",
+            authDomain: "mymemo-b89cb.firebaseapp.com",
+            databaseURL: "https://mymemo-b89cb.firebaseio.com",
+            projectId: "mymemo-b89cb",
+            storageBucket: "mymemo-b89cb.appspot.com",
+            messagingSenderId: "655096794286"
+          };
+          firebase.initializeApp(config);
+          auth = firebase.auth();   //firebase의 인증객체를 담아둘것
+          database = firebase.database();
+          var authProvider = new firebase.auth.GoogleAuthProvider();
+
+          auth.onAuthStateChanged(function(user){
+            if(user){
+              //인증 성공부
+              console.log("seccess");
+
+              initialize(user);
+
+            }else{
+              //인증 실패부
+
+                auth.signInWithPopup(authProvider);
+            }
+          })
+
+          function initialize(user){
+            //이후에 사용할 수 있도록 user정보를 전역변수에 저장
+            userInfo = user;
+            //데이터를 읽고 쓰는 행위의 기준 path
+            memoRef = database.ref('memos/'+userInfo.uid);
+            memoRef.on('child_added',  function(data) {
+  console.log(data);
+  append_memo_card(data);   //이거 지워야한다.
+}); //이거 지워야함
+            //메모리스트 출력(user 정보가 필요한 동작)
+            output_memo_list();
+          }
+
+
+          function append_memo_card(data){
+            console.log(data);
+            var key = data.key;
+            var memoData = data.val();
+            var txt = memoData.txt;
+            var title = memoData.title;
+            //var summary = txt.indexOf('\n') < 0 ? '' : txt.substr(txt.indexOf('\n')+1);
+            var firstTxt = title.substr(0,1).toUpperCase();
+            console.log('data['+key+']=' +memoData);
+            var html =
+             "<li id='"+key+"' class=\"collection-item avatar\" onclick=\"fn_get_data_one(this.id);\" >" +
+             "<i class=\"material-icons circle red\">" + firstTxt + "</i>" +
+             "<span class=\"title\">" + title + "</span>" +
+             "<p class='summary'>"  + "<br>" +
+             "</p>" +
+             "<a href=\"#!\" onclick=\"fn_delete_data('"+key+"')\"class=\"secondary-content\"><i class=\"meterial-icons\">grade</i></a>"+
+             "</li>";
+              //리스트에 추가(append)
+             $('.collection').append(html);
+          }
+
+          function fn_get_data_one(key){
+         console.log("get_Data");
+         selectedKey = key;
+         memoRef = database.ref('memos/'+userInfo.uid+'/'+selectedKey);
+         memoRef.once('value').then(function(snapshot){
+           if(snapshot.val()==null){
+             console.log("return");
+             return;
+           }
+           console.log(snapshot.val());
+           $(".textarea").val(snapshot.val().body);
+
+         })
+       }
+
+          function fn_delete_data(key){
+            var memoRef = database.ref('memos/'+userInfo.uid+'/'+key);
+            memoRef.remove();
+            $("#"+key).remove();
+            $('.textarea').val('');//데이터베이스 뿐만아니라 text도 없애
+          }
+          function output_memo_list(){
+
+              memoRef.once('value').then(function(snapshot){
+                for(var memoKey in snapshot.val()){
+                  var childRef = memoRef.child(memoKey);
+                  childRef.once('value').then(function(childSnapshot){
+                    append_memo_card(childSnapshot);
+                  })
+                }
+              });
+
+             }
+             $('.textarea').blur(function(){
+              save_data();
+             })
+
+             function save_data(){
+               var text = $('.textarea').val();
+               if(text!=""){
+                 var title = text.substr(0,5); //첫줄까지; 만약 한줄밖에 안되면 그냥 전체를 타이틀로
+                 var body = text; //나중에 textarea.val(body) 출력
+                 //var firstChar ="";
+                 var createDate = new Date().getTime();
+                 var save_data = {'title': title, 'body': body, 'createDate': createDate};
+                 //데이터 베이스 저장: push(dbPath = /memos/<uid>',{title: xxx, body:xxx, createDate:xxxx, updateDate: xxxx} <==push())
+                 memoRef.push().set(save_data, function(error){
+                   console.log("data push!!");
+                 });
+               }
+             }
+
+        </script>
+
+    </body>
+  </html>
